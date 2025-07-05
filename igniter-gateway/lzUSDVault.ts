@@ -20,26 +20,14 @@ const deploy: DeployFunction = async (hre) => {
 
     // Define chain-specific configurations
     const chainConfigs: { [key: string]: { asset: string; chainId: number } } = {
-        arbitrum: {
-            asset: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum
-            chainId: 30110 // LayerZero Arbitrum endpoint ID
+        'arbitrum-testnet': {
+            asset: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', // USDC on Arbitrum
+            chainId: 40231  // LayerZero Arbitrum endpoint ID
         },
-        ethereum: {
-            asset: '0xA0b86a33E6441b07ab8c76CE7E9E8E91aD4e3c7d', // USDC on Ethereum
-            chainId: 30101 // LayerZero Ethereum endpoint ID
+        'optimism-testnet': {
+            asset: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7', // USDC on Optimism
+            chainId: 40232 // LayerZero Optimism endpoint ID
         },
-        polygon: {
-            asset: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC on Polygon
-            chainId: 30109 // LayerZero Polygon endpoint ID
-        },
-        optimism: {
-            asset: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', // USDC on Optimism
-            chainId: 30111 // LayerZero Optimism endpoint ID
-        },
-        base: {
-            asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
-            chainId: 30184 // LayerZero Base endpoint ID
-        }
     }
 
     // Get current network configuration

@@ -6,7 +6,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ILzUSD} from "./lzUSD.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+/**
+ * @title Interface for lzUSD
+ */
+interface ILzUSD {
+    function mint(address to, uint256 amount) external;
+    function burn(address from, uint256 amount) external;
+}
 
 /**
  * @title lzUSDVault - Cross-Chain Yield Vault
@@ -43,10 +52,14 @@ contract lzUSDVault is ERC4626, ReentrancyGuard, Ownable {
     mapping(uint32 => uint256) public chainAPY; // chainId -> APY (scaled by 1e18)
     
     uint32[] public supportedChains;
-    uint256 public totalSupplyAPY; // Weighted average APY
+    uint256 public totalSupplyAPY;
     uint256 public lastHarvestTime;
     uint256 public accumulatedYield;
     uint32 public currentChainId;
+
+    // Vault name and symbol
+    string private _vaultName;
+    string private _vaultSymbol;
 
     // Lending protocol interface
     interface ILendingProtocol {
@@ -67,14 +80,14 @@ contract lzUSDVault is ERC4626, ReentrancyGuard, Ownable {
         string memory _symbol,
         address _lzUSD,
         uint32 _currentChainId
-    ) ERC4626(_asset) Ownable(msg.sender) {
+    ) ERC4626(_asset) ERC20(_name, _symbol) Ownable(msg.sender) {
         lzUSD = ILzUSD(_lzUSD);
         currentChainId = _currentChainId;
         lastHarvestTime = block.timestamp;
         
-        // Set initial values
-        _name = _name;
-        _symbol = _symbol;
+        // Set vault name and symbol
+        _vaultName = _name;
+        _vaultSymbol = _symbol;
     }
 
     /**
@@ -243,6 +256,20 @@ contract lzUSDVault is ERC4626, ReentrancyGuard, Ownable {
         return _convertToShares(assets, Math.Rounding.Up);
     }
 
+    /**
+     * @notice Get vault name
+     */
+    function name() public view override returns (string memory) {
+        return _vaultName;
+    }
+
+    /**
+     * @notice Get vault symbol
+     */
+    function symbol() public view override returns (string memory) {
+        return _vaultSymbol;
+    }
+
     // Internal functions
 
     function _supplyToLendingProtocol(uint256 amount) internal {
@@ -272,11 +299,11 @@ contract lzUSDVault is ERC4626, ReentrancyGuard, Ownable {
     function _harvestYield() internal {
         uint256 timePassed = block.timestamp - lastHarvestTime;
         if (timePassed > 0) {
-            uint256 yield = _getAccruedYield();
-            if (yield > 0) {
-                accumulatedYield += yield;
+            uint256 yieldAmount = _getAccruedYield();
+            if (yieldAmount > 0) {
+                accumulatedYield += yieldAmount;
                 lastHarvestTime = block.timestamp;
-                emit YieldHarvested(yield);
+                emit YieldHarvested(yieldAmount);
             }
         }
     }
@@ -343,7 +370,7 @@ contract lzUSDVault is ERC4626, ReentrancyGuard, Ownable {
     }
 
     function _triggerRebalance(uint32 fromChain, uint32 toChain, uint256 amount) internal {
-        // This would trigger cross-chain rebalancing
+        // This would trigger cross-chain rebalancing via Stargate
         // For now, just emit event - actual implementation would involve cross-chain calls
         emit Rebalanced(fromChain, toChain, amount);
     }
