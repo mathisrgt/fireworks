@@ -2,6 +2,7 @@
 pragma solidity ^0.8.22;
 
 import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
+import { ILzCompose } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/interfaces/ILzCompose.sol";
 import { MessagingFee } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 
 /**
@@ -9,7 +10,7 @@ import { MessagingFee } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.
  * @notice OFT token for cross-chain yield vault system
  * @dev Handles cross-chain transfers and compose messages
  */
-contract lzUSD is OFT {
+contract lzUSD is OFT, ILzCompose {
     // Events
     event CrossChainDeposit(address indexed user, uint32 indexed srcChain, uint256 amount);
     event CrossChainWithdraw(address indexed user, uint32 indexed dstChain, uint256 amount);
@@ -83,6 +84,16 @@ contract lzUSD is OFT {
 
         // Prepare compose message
         bytes memory composeMsg = abi.encode(_action, _receiver, _amount);
+
+        // Send OFT with compose message
+        _lzSend(
+            _dstEid,
+            abi.encode(_receiver, _amount),
+            _options,
+            MessagingFee(msg.value, 0),
+            payable(msg.sender),
+            composeMsg
+        );
 
         if (_action == DEPOSIT_ACTION) {
             emit CrossChainDeposit(_receiver, _dstEid, _amount);
