@@ -8,14 +8,13 @@
  <a href="https://docs.layerzero.network/" style="color: #a77dff">LayerZero Docs</a>
 </p>
 
-<h1 align="center">OFT Adapter Example</h1>
+<h1 align="center">EVM-to-EVM Omnichain Fungible Token (OFT) Example</h1>
 
-<p align="center">Template project for converting an existing token into a cross-chain token (<a href="https://docs.layerzero.network/v2/concepts/applications/oft-standard">OFT</a>) using the LayerZero protocol. This example's config involves EVM chains, but the same OFT can be extended to involve other VM chains such as Solana, Aptos and Hyperliquid.</p>
+<p align="center">Template project for a cross-chain token (<a href="https://docs.layerzero.network/v2/concepts/applications/oft-standard">OFT</a>) powered by the LayerZero protocol. This example's config involves EVM chains, but the same OFT can be extended to involve other VM chains such as Solana, Aptos and Hyperliquid.</p>
 
 ## Table of Contents
 
 - [Prerequisite Knowledge](#prerequisite-knowledge)
-- [Introduction](#introduction)
 - [Requirements](#requirements)
 - [Scaffold this example](#scaffold-this-example)
 - [Helper Tasks](#helper-tasks)
@@ -47,12 +46,6 @@
 - [What is an OFT (Omnichain Fungible Token) ?](https://docs.layerzero.network/v2/concepts/applications/oft-standard)
 - [What is an OApp (Omnichain Application) ?](https://docs.layerzero.network/v2/concepts/applications/oapp-standard)
 
-## Introduction
-
-**OFT Adapter** - while a regular OFT uses the mint/burn mechanism, an OFT adapter uses lock/unlock. The OFT Adapter contract functions as a lockbox for the existing token (referred to as the _inner token_). Given the inner token's chain, transfers to outside the inner token's chain will require locking and transfers to the inner token's chain will result in unlocking.
-
-<!-- TODO: remove this Introduction after having a page/section specifically on OFT Adapter that we can link to under Prerequisite Knowledge -->
-
 ## Requirements
 
 - `Node.js` - ` >=18.16.0`
@@ -64,10 +57,10 @@
 Create your local copy of this example:
 
 ```bash
-pnpm dlx create-lz-oapp@latest --example oft-adapter
+pnpm dlx create-lz-oapp@latest --example oft
 ```
 
-Specify the directory, select `OFTAdapter` and proceed with the installation.
+Specify the directory, select `OFT` and proceed with the installation.
 
 Note that `create-lz-oapp` will also automatically run the dependencies install step for you.
 
@@ -111,42 +104,21 @@ pnpm compile:hardhat
 
 ## Deploy
 
-First, deploy the inner token to (only) **Optimism Sepolia**.
+To deploy the OFT contracts to your desired blockchains, run the following command:
 
 ```bash
-pnpm hardhat lz:deploy --tags MyERC20Mock --networks optimism-testnet
+pnpm hardhat lz:deploy --tags MyOFTMock
 ```
 
-The deploy script for **MyERC20Mock** will also mint 10 tokens to the deployer address.
+> :information_source: MyOFTMock will be used as it provides a public mint function which we require for testing
 
-On the `Deployed Contract` line, note the `address` logged (inner token's address) upon successful deployment as you need it for the next step. Else, you can also refer to `./deployments/optimism-testnet/MyERC20Mock.json`.
-
-> :information_source: MyERC20Mock will be used as it provides a public mint function which we require for testing. Ensure you do not use this for production.
-
-In the `hardhat.config.ts` file, add the inner token's address to the network you want to deploy the OFTAdapter to:
-
-```typescript
-// Replace `0x0` with the address of the ERC20 token you want to adapt to the OFT functionality.
-oftAdapter: {
-    tokenAddress: '<INNER_TOKEN_ADDRESS>',
-}
-```
-
-Deploy an OFTAdapter to Optimism Sepolia:
-
-```bash
-pnpm hardhat lz:deploy --tags MyOFTAdapter --networks optimism-testnet
-```
-
-Deploy the OFT to Arbitrum Sepolia:
-
-```bash
-pnpm hardhat lz:deploy --tags MyOFT --networks arbitrum-testnet
-```
+Select all the chains you want to deploy the OFT to.
 
 ## Enable Messaging
 
 The OFT standard builds on top of the OApp standard, which enables generic message-passing between chains. After deploying the OFT on the respective chains, you enable messaging by running the [wiring](https://docs.layerzero.network/v2/concepts/glossary#wire--wiring) task.
+
+> :information_source: This example uses the [Simple Config Generator](https://docs.layerzero.network/v2/developers/evm/technical-reference/simple-config), which is recommended over manual configuration.
 
 Run the wiring task:
 
@@ -159,6 +131,15 @@ Submit all the transactions to complete wiring. After all transactions confirm, 
 ## Sending OFTs
 
 With your OFTs wired, you can now send them cross chain.
+
+First, via the mock contract, let's mint on **Optimism Sepolia**:
+
+```
+cast send <OFT_ADDRESS> "mint(address,uint256)" <RECIPIENT_ADDRESS> 1000000000000000000 --private-key <PRIVATE_KEY> --rpc-url <OPTIMISM_SEPOLIA_RPC_URL>
+
+```
+
+> You can get the address of your OFT on Optimism Sepolia from the file at `./deployments/optimism-testnet/MyOFTMock.json`
 
 Send 1 OFT from **Optimism Sepolia** to **Arbitrum Sepolia**:
 
@@ -539,7 +520,7 @@ If you do NOT explicitly set each configuration parameter, your OApp will fallba
 │                    │ ├──────────────────────┼────────────────────────────────────────────────────┤ │ ├──────────────────────┼────────────────────────────────────────────────────┤ │ ├──────────────────────┼────────────────────────────────────────────────────┤ │
 │                    │ │ requiredDVNs         │ ┌───┬────────────────────────────────────────────┐ │ │ │ requiredDVNs         │ ┌───┬────────────────────────────────────────────┐ │ │ │ requiredDVNs         │ ┌───┬────────────────────────────────────────────┐ │ │
 │                    │ │                      │ │ 0 │ 0x53f488E93b4f1b60E8E83aa374dBe1780A1EE8a8 │ │ │ │                      │ │ 0 │ 0x53f488E93b4f1b60E8E83aa374dBe1780A1EE8a8 │ │ │ │                      │ │ 0 │ 0x53f488E93b4f1b60E8E83aa374dBe1780A1EE8a8 │ │ │
-│                    │ │                      │ └───┴────────────────────────────────────────────┘ │ │ │                      │ └───┴────────────────────────────────────────────┘ │ │ │                      │ └───┴────────────────────────────────────────────┘ │
+│                    │ │                      │ └───┴────────────────────────────────────────────┘ │ │ │                      │ └───┴────────────────────────────────────────────┘ │ │ │                      │ └───┴────────────────────────────────────────────┘ │ │
 │                    │ │                      │                                                    │ │ │                      │                                                    │ │ │                      │                                                    │ │
 │                    │ ├──────────────────────┼────────────────────────────────────────────────────┤ │ ├──────────────────────┼────────────────────────────────────────────────────┤ │ ├──────────────────────┼────────────────────────────────────────────────────┤ │
 │                    │ │ optionalDVNs         │                                                    │ │ │ optionalDVNs         │                                                    │ │ │ optionalDVNs         │                                                    │ │

@@ -13,7 +13,6 @@ import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
-import './type-extensions'
 import './tasks/sendOFT'
 
 // Set your preferred authentication method
@@ -59,9 +58,6 @@ const config: HardhatUserConfig = {
             eid: EndpointId.OPTSEP_V2_TESTNET,
             url: process.env.RPC_URL_OP_SEPOLIA || 'https://optimism-sepolia.gateway.tenderly.co',
             accounts,
-            oftAdapter: {
-                tokenAddress: '0x0', // Set the token address for the OFT adapter
-            },
         },
         'arbitrum-testnet': {
             eid: EndpointId.ARBSEP_V2_TESTNET,
