@@ -1,2 +1,2 @@
-# yello
+# fireworks
 ETHGlobal Cannes
