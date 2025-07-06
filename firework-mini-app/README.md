@@ -1,6 +1,6 @@
 # Firework Mini App
 
-A Next.js 15 application with World ID authentication and cross-chain yield rate monitoring using LayerZero LZRead.
+A Next.js 15 application with World ID authentication, cross-chain yield rate monitoring, and secure payment processing using LayerZero LZRead.
 
 ## Features
 
@@ -16,6 +16,12 @@ A Next.js 15 application with World ID authentication and cross-chain yield rate
   - **Aave V3**: USDC supply rates
   - **Morpho Blue**: USDC market data and utilization rates
 - **Smart Contract**: `YieldRateReader.sol` deployed on Arbitrum for efficient cross-chain reads
+
+### 💳 Secure Payment Processing
+- **Deposit Functionality**: Direct USDC/WLD deposits to Firework vault
+- **World ID MiniKit Integration**: Secure payment processing via World App
+- **Real-Time Verification**: Payment status tracking and confirmation
+- **Vault Address**: `0x2457537EE691e74b16D672AbF0FFC322c01557c3`
 
 ### 🎨 Modern UI/UX
 - Clean, minimalist design with Firework branding
@@ -33,6 +39,7 @@ A Next.js 15 application with World ID authentication and cross-chain yield rate
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Styling**: Tailwind CSS 4, shadcn/ui components
 - **Authentication**: World ID MiniKit SDK
+- **Payments**: World ID MiniKit sendPayment command
 - **Blockchain**: LayerZero LZRead, Ethers.js, Viem
 - **Smart Contracts**: Solidity 0.8.20, Hardhat
 - **Deployment**: Arbitrum network
@@ -42,7 +49,7 @@ A Next.js 15 application with World ID authentication and cross-chain yield rate
 ### Prerequisites
 - Node.js 18+ (LTS recommended)
 - npm or yarn
-- World App for testing authentication
+- World App for testing authentication and payments
 
 ### Installation
 
@@ -58,9 +65,16 @@ npm install --legacy-peer-deps
 ```
 
 3. Set up environment variables:
+Create a `.env.local` file with the following variables:
 ```bash
-cp .env.example .env.local
-# Add your configuration values
+# World ID MiniKit Configuration
+# Get these from https://developer.worldcoin.org/
+APP_ID=your_app_id_here
+DEV_PORTAL_API_KEY=your_dev_portal_api_key_here
+
+# Next.js Configuration
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
 ```
 
 4. Start the development server:
@@ -70,12 +84,37 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Payment Integration
+
+### Deposit Flow
+1. User clicks "Deposit" button
+2. Modal opens with amount and token selection
+3. User enters amount and selects token (USDC/WLD)
+4. Payment is initiated via World ID MiniKit
+5. World App opens for payment confirmation
+6. Payment is processed on-chain
+7. Backend verifies payment status
+8. Success confirmation is displayed
+
+### Supported Tokens
+- **USDC**: Stablecoin deposits with 5.10% APY
+- **WLD**: Worldcoin token deposits with 3.12% APY
+
+### Security Features
+- Payment reference tracking
+- Backend verification via World Developer Portal API
+- Transaction status monitoring
+- Error handling and user feedback
+
 ## Project Structure
 
 ```
 firework-mini-app/
 ├── src/
 │   ├── app/                 # Next.js app router pages
+│   │   ├── api/            # API routes
+│   │   │   ├── initiate-payment/  # Payment initiation
+│   │   │   └── confirm-payment/   # Payment verification
 │   ├── components/          # React components
 │   ├── hooks/              # Custom React hooks
 │   └── lib/                # Utility functions

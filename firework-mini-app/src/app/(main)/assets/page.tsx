@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, CheckCircle } from "lucide-react";
+import { ChevronRight, CheckCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
+import LiveRatesDisplay from "@/components/LiveRatesDisplay";
+import { MiniKit, tokenToDecimals, Tokens, PayCommandInput, ResponseEvent, MiniAppPaymentPayload } from '@worldcoin/minikit-js';
 
 // Demo data
 const demoPortfolio = {
@@ -137,43 +139,7 @@ function AnimatedNumber({ value, decimals = 2 }: { value: number; decimals?: num
   return <span>{value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>;
 }
 
-function LiveRates() {
-  return (
-    <section className="w-full mt-4">
-      <h2 className="text-lg font-semibold mb-2 text-foreground">Live Rates</h2>
-      <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-        {FAKE_PROTOCOLS.map((protocol) => (
-          <div
-            key={protocol.id}
-            className="min-w-[120px] max-w-[140px] bg-card border border-border rounded-xl flex flex-col items-center px-3 py-2 shadow-sm"
-            title={protocol.description}
-          >
-            <div className="w-8 h-8 mb-1 flex items-center justify-center">
-              <Image
-                src={protocol.logoUrl}
-                alt={protocol.name + ' logo'}
-                width={32}
-                height={32}
-                className="object-contain"
-                onError={(e) => {
-                  // fallback to a generic icon if logo is missing
-                  (e.target as HTMLImageElement).src = '/protocols/firework.svg';
-                }}
-              />
-            </div>
-            <div className="text-xs font-medium text-muted-foreground text-center truncate w-full">
-              {protocol.name}
-            </div>
-            <div className="text-[10px] text-muted-foreground mb-1">{protocol.asset}</div>
-            <div className="text-lg font-bold text-brand-pink leading-none">
-              {protocol.apy}%
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+// LiveRates component is now replaced by LiveRatesDisplay component
 
 export default function AssetsPage() {
   // Demo: always verified
@@ -183,6 +149,122 @@ export default function AssetsPage() {
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [selectedToken, setSelectedToken] = useState("USDC");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  // Firework vault address for deposits
+  const FIREWORK_VAULT_ADDRESS = "0x2457537EE691e74b16D672AbF0FFC322c01557c3";
+
+  // Initialize MiniKit payment listener
+  useEffect(() => {
+    if (!MiniKit.isInstalled()) {
+      console.log("MiniKit is not installed");
+      return;
+    }
+
+    const handlePaymentResponse = async (response: MiniAppPaymentPayload) => {
+      if (response.status === "success") {
+        try {
+          const res = await fetch(`/api/confirm-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payload: response }),
+          });
+          const payment = await res.json();
+          if (payment.success) {
+            setPaymentSuccess(true);
+            setPaymentError(null);
+            // Close modal after successful payment
+            setTimeout(() => {
+              setShowDeposit(false);
+              setPaymentSuccess(false);
+              setDepositAmount("");
+            }, 2000);
+          } else {
+            setPaymentError("Payment verification failed");
+          }
+        } catch (error) {
+          console.error("Error confirming payment:", error);
+          setPaymentError("Failed to confirm payment");
+        }
+      } else {
+        setPaymentError("Payment was cancelled or failed");
+      }
+      setIsProcessingPayment(false);
+    };
+
+    MiniKit.subscribe(ResponseEvent.MiniAppPayment, handlePaymentResponse);
+
+    return () => {
+      MiniKit.unsubscribe(ResponseEvent.MiniAppPayment);
+    };
+  }, []);
+
+  const handleDeposit = async () => {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setPaymentError("Please enter a valid amount");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+    setPaymentSuccess(false);
+
+    try {
+      // 1. Initiate payment to get reference ID
+      const res = await fetch('/api/initiate-payment', {
+        method: 'POST',
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to initiate payment');
+      }
+      
+      const { id } = await res.json();
+
+      // 2. Prepare payment payload
+      const payload: PayCommandInput = {
+        reference: id,
+        to: FIREWORK_VAULT_ADDRESS,
+        tokens: [
+          {
+            symbol: selectedToken === "USDC" ? Tokens.USDC : Tokens.WLD, // Fallback to WLD if not USDC
+            token_amount: tokenToDecimals(parseFloat(depositAmount), selectedToken === "USDC" ? Tokens.USDC : Tokens.WLD).toString(),
+          },
+        ],
+        description: `Deposit ${depositAmount} ${selectedToken} to Firework vault`,
+      };
+
+      // 3. Send payment command
+      if (!MiniKit.isInstalled()) {
+        setPaymentError("World App is not available");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+
+      if (finalPayload.status === 'success') {
+        // Payment was successful, the listener will handle the confirmation
+        console.log("Payment sent successfully");
+      } else {
+        setPaymentError("Payment was cancelled or failed");
+        setIsProcessingPayment(false);
+      }
+    } catch (error) {
+      console.error("Error sending payment:", error);
+      setPaymentError("Failed to send payment");
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const resetDepositForm = () => {
+    setDepositAmount("");
+    setPaymentError(null);
+    setPaymentSuccess(false);
+    setIsProcessingPayment(false);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 px-2 max-w-md mx-auto">
@@ -229,7 +311,7 @@ export default function AssetsPage() {
       </div>
 
       {/* Live Rates Section */}
-      <LiveRates />
+      <LiveRatesDisplay />
 
       {/* Assets Section */}
       <div className="mb-4">
@@ -267,12 +349,35 @@ export default function AssetsPage() {
       </div>
 
       {/* Deposit Modal */}
-      <Dialog open={showDeposit} onOpenChange={setShowDeposit}>
+      <Dialog open={showDeposit} onOpenChange={(open) => {
+        if (!open) {
+          resetDepositForm();
+        }
+        setShowDeposit(open);
+      }}>
         <DialogContent className="bg-[#18122B] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-white">Deposit</DialogTitle>
           </DialogHeader>
           <div className="mb-2 text-zinc-400 text-sm">Deposit your stablecoins and let Firework explode your bag</div>
+          
+          {paymentSuccess && (
+            <div className="mb-4 p-3 bg-green-600/20 border border-green-600/30 rounded-lg">
+              <div className="text-green-400 text-sm font-medium flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Payment successful! Your deposit is being processed.
+              </div>
+            </div>
+          )}
+
+          {paymentError && (
+            <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
+              <div className="text-red-400 text-sm font-medium">
+                {paymentError}
+              </div>
+            </div>
+          )}
+
           <div className="mb-4">
             <div className="flex gap-2 mb-2">
               <Input
@@ -281,26 +386,42 @@ export default function AssetsPage() {
                 value={depositAmount}
                 onChange={e => setDepositAmount(e.target.value)}
                 className="bg-zinc-800 text-white border-none focus:ring-pink-500"
+                disabled={isProcessingPayment}
               />
               <select
                 value={selectedToken}
                 onChange={e => setSelectedToken(e.target.value)}
                 className="bg-zinc-800 text-white rounded px-2"
+                disabled={isProcessingPayment}
               >
                 <option value="USDC">USDC</option>
-                <option value="USDS">USDS</option>
+                <option value="WLD">WLD</option>
               </select>
             </div>
-            <div className="text-xs text-zinc-400 mb-2">Current APY: <span className="text-green-400 font-semibold">{selectedToken === "USDC" ? "5.10%" : "7.25%"}</span></div>
+            <div className="text-xs text-zinc-400 mb-2">Current APY: <span className="text-green-400 font-semibold">{selectedToken === "USDC" ? "5.10%" : "3.12%"}</span></div>
             {isWorldIdVerified && (
               <Badge className="bg-green-600 text-white flex items-center gap-1 mb-2">
                 <CheckCircle className="h-4 w-4 mr-1" /> World ID Verified (Boost APY!)
               </Badge>
             )}
+            <div className="text-xs text-zinc-400">
+              Vault Address: <span className="text-white font-mono text-xs">{FIREWORK_VAULT_ADDRESS}</span>
+            </div>
           </div>
           <DialogFooter>
-            <Button className="bg-pink-500 hover:bg-pink-600 text-white rounded-full w-full" onClick={() => setShowDeposit(false)}>
-              Confirm Deposit
+            <Button 
+              className="bg-pink-500 hover:bg-pink-600 text-white rounded-full w-full" 
+              onClick={handleDeposit}
+              disabled={isProcessingPayment || !depositAmount || parseFloat(depositAmount) <= 0}
+            >
+              {isProcessingPayment ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Deposit'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
