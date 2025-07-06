@@ -1,6 +1,6 @@
-# 🔥 Firework
+#  🎆 Firework
 
-**Cross-Chain Yield Optimization Protocol**
+**Cross-Chain stable Yield Optimization Protocol**
 
 Firework is a cross-chain yield optimization protocol that allows users to earn the best available APY across multiple chains and lending protocols—all with a single click and no prior DeFi experience required. Users deposit USDC on Worldchain, and Firework seamlessly handles everything else: converting it into lzUSD (a yield-bearing synthetic stablecoin), routing it through the lzUSD Gateway, and allocating it to the most profitable lending opportunities across chains like Mantle and Flow.
 
