@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ChevronRight, CheckCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import LiveRatesDisplay from "@/components/LiveRatesDisplay";
-import { MiniKit, tokenToDecimals, Tokens, PayCommandInput, ResponseEvent, MiniAppPaymentPayload } from '@worldcoin/minikit-js';
+import { MiniKit, tokenToDecimals, Tokens, PayCommandInput, ResponseEvent, MiniAppPaymentPayload, MiniAppSendTransactionPayload } from '@worldcoin/minikit-js';
 
 // Demo data
 const demoPortfolio = {
@@ -150,13 +150,16 @@ export default function AssetsPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
   // Firework vault address for deposits
   const FIREWORK_VAULT_ADDRESS = "0x2457537EE691e74b16D672AbF0FFC322c01557c3";
 
-  // Initialize MiniKit payment listener
+  // Initialize MiniKit payment and transaction listeners
   useEffect(() => {
     if (!MiniKit.isInstalled()) {
       console.log("MiniKit is not installed");
@@ -194,10 +197,43 @@ export default function AssetsPage() {
       setIsProcessingPayment(false);
     };
 
+    const handleTransactionResponse = async (response: MiniAppSendTransactionPayload) => {
+      if (response.status === "success") {
+        try {
+          const res = await fetch(`/api/confirm-withdraw`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payload: response }),
+          });
+          const withdraw = await res.json();
+          if (withdraw.success) {
+            setWithdrawSuccess(true);
+            setWithdrawError(null);
+            // Close modal after successful withdrawal
+            setTimeout(() => {
+              setShowWithdraw(false);
+              setWithdrawSuccess(false);
+              setWithdrawAmount("");
+            }, 2000);
+          } else {
+            setWithdrawError("Withdrawal verification failed");
+          }
+        } catch (error) {
+          console.error("Error confirming withdrawal:", error);
+          setWithdrawError("Failed to confirm withdrawal");
+        }
+      } else {
+        setWithdrawError("Withdrawal was cancelled or failed");
+      }
+      setIsProcessingWithdraw(false);
+    };
+
     MiniKit.subscribe(ResponseEvent.MiniAppPayment, handlePaymentResponse);
+    MiniKit.subscribe(ResponseEvent.MiniAppSendTransaction, handleTransactionResponse);
 
     return () => {
       MiniKit.unsubscribe(ResponseEvent.MiniAppPayment);
+      MiniKit.unsubscribe(ResponseEvent.MiniAppSendTransaction);
     };
   }, []);
 
@@ -259,11 +295,98 @@ export default function AssetsPage() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      setWithdrawError("Please enter a valid amount");
+      return;
+    }
+
+    setIsProcessingWithdraw(true);
+    setWithdrawError(null);
+    setWithdrawSuccess(false);
+
+    try {
+      // 1. Initiate withdrawal to get reference ID
+      const res = await fetch('/api/initiate-withdraw', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          amount: withdrawAmount, 
+          token: selectedToken 
+        }),
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to initiate withdrawal');
+      }
+      
+      const { id } = await res.json();
+
+      // 2. Prepare withdrawal transaction
+      // For demo purposes, we'll simulate a withdrawal by calling a mock vault contract
+      // In production, this would call your actual vault contract's withdraw function
+      const mockVaultABI = [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "withdraw",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ];
+
+      const withdrawAmountInWei = tokenToDecimals(parseFloat(withdrawAmount), selectedToken === "USDC" ? Tokens.USDC : Tokens.WLD).toString();
+
+      // 3. Send transaction command
+      if (!MiniKit.isInstalled()) {
+        setWithdrawError("World App is not available");
+        setIsProcessingWithdraw(false);
+        return;
+      }
+
+      const { commandPayload, finalPayload } = await MiniKit.commandsAsync.sendTransaction({
+        transaction: [
+          {
+            address: FIREWORK_VAULT_ADDRESS, // Using the same vault address for demo
+            abi: mockVaultABI,
+            functionName: 'withdraw',
+            args: [withdrawAmountInWei],
+          },
+        ],
+      });
+
+      if (finalPayload.status === 'success') {
+        // Transaction was successful, the listener will handle the confirmation
+        console.log("Withdrawal transaction sent successfully");
+      } else {
+        setWithdrawError("Withdrawal was cancelled or failed");
+        setIsProcessingWithdraw(false);
+      }
+    } catch (error) {
+      console.error("Error sending withdrawal transaction:", error);
+      setWithdrawError("Failed to send withdrawal transaction");
+      setIsProcessingWithdraw(false);
+    }
+  };
+
   const resetDepositForm = () => {
     setDepositAmount("");
     setPaymentError(null);
     setPaymentSuccess(false);
     setIsProcessingPayment(false);
+  };
+
+  const resetWithdrawForm = () => {
+    setWithdrawAmount("");
+    setWithdrawError(null);
+    setWithdrawSuccess(false);
+    setIsProcessingWithdraw(false);
   };
 
   return (
@@ -428,12 +551,35 @@ export default function AssetsPage() {
       </Dialog>
 
       {/* Withdraw Modal */}
-      <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
+      <Dialog open={showWithdraw} onOpenChange={(open) => {
+        if (!open) {
+          resetWithdrawForm();
+        }
+        setShowWithdraw(open);
+      }}>
         <DialogContent className="bg-[#18122B] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-white">Withdraw</DialogTitle>
           </DialogHeader>
-          <div className="mb-2 text-zinc-400 text-sm">Withdraw your stablecoins</div>
+          <div className="mb-2 text-zinc-400 text-sm">Withdraw your stablecoins from the Firework vault</div>
+          
+          {withdrawSuccess && (
+            <div className="mb-4 p-3 bg-green-600/20 border border-green-600/30 rounded-lg">
+              <div className="text-green-400 text-sm font-medium flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Withdrawal successful! Your funds are being processed.
+              </div>
+            </div>
+          )}
+
+          {withdrawError && (
+            <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
+              <div className="text-red-400 text-sm font-medium">
+                {withdrawError}
+              </div>
+            </div>
+          )}
+
           <div className="mb-4">
             <div className="flex gap-2 mb-2">
               <Input
@@ -442,21 +588,37 @@ export default function AssetsPage() {
                 value={withdrawAmount}
                 onChange={e => setWithdrawAmount(e.target.value)}
                 className="bg-zinc-800 text-white border-none focus:ring-pink-500"
+                disabled={isProcessingWithdraw}
               />
               <select
                 value={selectedToken}
                 onChange={e => setSelectedToken(e.target.value)}
                 className="bg-zinc-800 text-white rounded px-2"
+                disabled={isProcessingWithdraw}
               >
                 <option value="USDC">USDC</option>
                 <option value="USDS">USDS</option>
               </select>
             </div>
-            <div className="text-xs text-zinc-400 mb-2">Withdrawable: <span className="text-white font-semibold">$0.00</span></div>
+            <div className="text-xs text-zinc-400 mb-2">Withdrawable: <span className="text-white font-semibold">${selectedToken === "USDC" ? "68,682.65" : "32,123.27"}</span></div>
+            <div className="text-xs text-zinc-400">
+              Vault Address: <span className="text-white font-mono text-xs">{FIREWORK_VAULT_ADDRESS}</span>
+            </div>
           </div>
           <DialogFooter>
-            <Button className="bg-pink-500 hover:bg-pink-600 text-white rounded-full w-full" onClick={() => setShowWithdraw(false)}>
-              Confirm Withdraw
+            <Button 
+              className="bg-pink-500 hover:bg-pink-600 text-white rounded-full w-full" 
+              onClick={handleWithdraw}
+              disabled={isProcessingWithdraw || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
+            >
+              {isProcessingWithdraw ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Withdraw'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Gift, Star, Trophy, TrendingUp } from "lucide-react";
+import { Gift, Star, Trophy, TrendingUp, ArrowRight } from "lucide-react";
 
 export default function RewardsPage() {
   return (
@@ -86,10 +86,11 @@ export default function RewardsPage() {
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-4 w-4 text-primary" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="font-medium">Deposit Stablecoins</p>
                   <p className="text-sm text-muted-foreground">Earn yield on your deposits</p>
                 </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -100,10 +101,11 @@ export default function RewardsPage() {
                 <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
                   <Star className="h-4 w-4 text-secondary" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="font-medium">Refer Friends</p>
                   <p className="text-sm text-muted-foreground">Earn bonuses for referrals</p>
                 </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>

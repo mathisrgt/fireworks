@@ -18,16 +18,17 @@ A Next.js 15 application with World ID authentication, cross-chain yield rate mo
 - **Smart Contract**: `YieldRateReader.sol` deployed on Arbitrum for efficient cross-chain reads
 
 ### 💳 Secure Payment Processing
-- **Deposit Functionality**: Direct USDC/WLD deposits to Firework vault
-- **World ID MiniKit Integration**: Secure payment processing via World App
-- **Real-Time Verification**: Payment status tracking and confirmation
-- **Vault Address**: `0x2457537EE691e74b16D672AbF0FFC322c01557c3`
+- **Deposit Functionality**: Uses World ID MiniKit `pay` command for secure deposits
+- **Withdraw Functionality**: Uses World ID MiniKit `sendTransaction` command for vault withdrawals
+- **Target Vault**: `0x2457537EE691e74b16D672AbF0FFC322c01557c3`
+- **Supported Tokens**: USDC, WLD, USDS
+- **Real-time Status**: Payment and transaction status tracking with success/error feedback
 
 ### 🎨 Modern UI/UX
 - Clean, minimalist design with Firework branding
 - Responsive layout with bottom navigation
-- Animated portfolio overview with real-time number updates
-- Protocol logos and live status indicators
+- Animated portfolio numbers and live rate updates
+- World ID verification badges and boost indicators
 
 ### 📱 Mobile-First Design
 - Optimized for World App browser
@@ -36,137 +37,172 @@ A Next.js 15 application with World ID authentication, cross-chain yield rate mo
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS 4, shadcn/ui components
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
 - **Authentication**: World ID MiniKit SDK
-- **Payments**: World ID MiniKit sendPayment command
-- **Blockchain**: LayerZero LZRead, Ethers.js, Viem
-- **Smart Contracts**: Solidity 0.8.20, Hardhat
-- **Deployment**: Arbitrum network
+- **Payments**: World ID MiniKit Pay & SendTransaction commands
+- **Blockchain**: LayerZero LZRead for cross-chain data
+- **UI Components**: shadcn/ui with custom theming
+- **Icons**: Lucide React icons
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+ (LTS recommended)
-- npm or yarn
 - World App for testing authentication and payments
+- ngrok for local development with World App
 
 ### Installation
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd firework-mini-app
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd firework-mini-app
+   ```
 
-2. Install dependencies:
-```bash
-npm install --legacy-peer-deps
-```
+2. **Install dependencies**
+   ```bash
+   npm install --legacy-peer-deps
+   ```
 
-3. Set up environment variables:
-Create a `.env.local` file with the following variables:
-```bash
-# World ID MiniKit Configuration
-# Get these from https://developer.worldcoin.org/
-APP_ID=your_app_id_here
-DEV_PORTAL_API_KEY=your_dev_portal_api_key_here
+3. **Set up environment variables**
+   Create a `.env.local` file in the project root:
+   ```env
+   # World ID MiniKit Configuration
+   NEXT_PUBLIC_WORLD_APP_ID=your_app_id_here
+   
+   # LayerZero Configuration (for yield rate reading)
+   LAYERZERO_ENDPOINT_ID=your_endpoint_id
+   ```
 
-# Next.js Configuration
-NEXTAUTH_SECRET=your_nextauth_secret_here
-NEXTAUTH_URL=http://localhost:3000
-```
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
 
-4. Start the development server:
-```bash
-npm run dev
-```
+5. **Expose with ngrok for World App testing**
+   ```bash
+   ngrok http 3000
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment Variables
 
-## Payment Integration
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_WORLD_APP_ID` | Your World App ID from the Developer Portal | Yes |
+| `LAYERZERO_ENDPOINT_ID` | LayerZero endpoint ID for cross-chain reads | No (for yield rates) |
+
+## Usage
+
+### Authentication Flow
+1. Users sign in using World App
+2. SIWE (Sign-In with Ethereum) verification
+3. Secure session management with context
 
 ### Deposit Flow
 1. User clicks "Deposit" button
-2. Modal opens with amount and token selection
-3. User enters amount and selects token (USDC/WLD)
-4. Payment is initiated via World ID MiniKit
-5. World App opens for payment confirmation
-6. Payment is processed on-chain
-7. Backend verifies payment status
-8. Success confirmation is displayed
+2. Enters amount and selects token (USDC/WLD)
+3. World ID MiniKit `pay` command executes
+4. Payment sent to Firework vault address
+5. Real-time status updates and confirmation
 
-### Supported Tokens
-- **USDC**: Stablecoin deposits with 5.10% APY
-- **WLD**: Worldcoin token deposits with 3.12% APY
+### Withdraw Flow
+1. User clicks "Withdraw" button
+2. Enters amount and selects token (USDC/USDS)
+3. World ID MiniKit `sendTransaction` command executes
+4. Smart contract withdrawal transaction
+5. Real-time status updates and confirmation
 
-### Security Features
-- Payment reference tracking
-- Backend verification via World Developer Portal API
-- Transaction status monitoring
-- Error handling and user feedback
+### Live Rates
+- Real-time yield rates from Aave V3 and Morpho Blue
+- Cross-chain data via LayerZero LZRead
+- Auto-refresh with manual refresh controls
+- Visual indicators for live vs cached data
 
-## Project Structure
+## API Routes
 
+### Authentication
+- `POST /api/nonce` - Generate nonce for SIWE
+- `POST /api/complete-siwe` - Complete SIWE verification
+- `POST /api/check-auth` - Check authentication status
+- `POST /api/logout` - Logout user
+
+### Payments
+- `POST /api/initiate-payment` - Generate payment reference ID
+- `POST /api/confirm-payment` - Verify payment status
+- `POST /api/initiate-withdraw` - Generate withdrawal reference ID
+- `POST /api/confirm-withdraw` - Verify withdrawal transaction
+
+## Smart Contracts
+
+### YieldRateReader.sol
+- LayerZero LZRead integration for cross-chain yield data
+- Supports Aave V3 and Morpho Blue protocols
+- Deployed on Arbitrum for efficient cross-chain reads
+
+## Development
+
+### Project Structure
 ```
 firework-mini-app/
 ├── src/
-│   ├── app/                 # Next.js app router pages
-│   │   ├── api/            # API routes
-│   │   │   ├── initiate-payment/  # Payment initiation
-│   │   │   └── confirm-payment/   # Payment verification
+│   ├── app/
+│   │   ├── (main)/          # Main app routes
+│   │   ├── api/             # API routes
+│   │   └── auth/            # Authentication pages
 │   ├── components/          # React components
-│   ├── hooks/              # Custom React hooks
-│   └── lib/                # Utility functions
-├── contracts/              # Smart contracts
-│   └── YieldRateReader.sol # LayerZero yield reader
-├── scripts/                # Deployment scripts
-└── public/                 # Static assets
+│   └── hooks/               # Custom React hooks
+├── contracts/               # Smart contracts
+├── public/                  # Static assets
+└── scripts/                 # Deployment scripts
 ```
 
-## Live Rates Integration
+### Key Components
+- `LiveRatesDisplay.tsx` - Live yield rates with LayerZero integration
+- `MiniKitProvider.tsx` - World ID MiniKit context provider
+- `YieldRateReader.sol` - Smart contract for cross-chain yield reading
 
-The Live Rates section displays real-time yield data from:
+## Testing
 
-1. **Aave V3**: Fetches USDC liquidity rates from PoolDataProvider
-2. **Morpho Blue**: Reads market utilization and calculates supply rates
-3. **Cross-Chain**: Uses LayerZero LZRead to fetch data from Ethereum mainnet
-4. **Real-Time Updates**: Automatic refresh with live status indicators
+### World App Testing
+1. Install World App on your device
+2. Use ngrok to expose your local development server
+3. Test authentication and payment flows
+4. Verify transaction status and confirmations
 
-### Smart Contract Features
-- Cross-chain read requests via LayerZero
-- Batch data fetching for multiple protocols
-- Gas-efficient rate calculations
-- Event emission for frontend updates
-
-## Authentication Flow
-
-1. User clicks "Sign in" button
-2. World App opens with SIWE message
-3. User signs the message in World App
-4. Backend verifies signature and nonce
-5. User is redirected to Assets page
-6. Session is maintained across app
+### Browser Testing
+- Authentication fallback for non-World App browsers
+- Mock payment responses for development
+- UI/UX testing across different screen sizes
 
 ## Deployment
 
+### Production Setup
+1. Configure environment variables for production
+2. Deploy smart contracts to target networks
+3. Update LayerZero configuration
+4. Deploy Next.js application
+
 ### Smart Contract Deployment
 ```bash
-# Deploy to Arbitrum Sepolia
-npx hardhat run scripts/deploy-yield-reader.ts --network arbitrumSepolia
+# Deploy YieldRateReader contract
+npx hardhat run scripts/deploy-yield-reader.ts --network arbitrum
 ```
-
-### Frontend Deployment
-The app can be deployed to Vercel or any Next.js-compatible platform.
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Test thoroughly with World App
 5. Submit a pull request
 
 ## License
 
 This project is licensed under the MIT License.
+
+## Support
+
+For support and questions:
+- Check the [World Developer Docs](https://docs.world.org)
+- Review the [LayerZero Documentation](https://layerzero.network/docs)
+- Open an issue in this repository
