@@ -15,6 +15,11 @@ const arbitrumContract: OmniPointHardhat = {
     contractName: 'lzUSD',
 }
 
+const worldContract: OmniPointHardhat = {
+    eid: EndpointId.ARBSEP_V2_TESTNET,
+    contractName: 'lzUSD',
+}
+
 // To connect all the above chains to each other, we need the following pathways:
 // Optimism <-> Arbitrum
 
@@ -35,7 +40,7 @@ const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
 const pathways: TwoWayConfig[] = [
     [
         optimismContract, // Chain A contract
-        arbitrumContract, // Chain C contract
+        worldContract, // Chain C contract
         [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
         [1, 1], // [A to B confirmations, B to A confirmations]
         [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain C enforcedOptions, Chain A enforcedOptions
@@ -46,7 +51,7 @@ export default async function () {
     // Generate the connections config based on the pathways
     const connections = await generateConnectionsConfig(pathways)
     return {
-        contracts: [{ contract: optimismContract }, { contract: arbitrumContract }],
+        contracts: [{ contract: optimismContract }, { contract: worldContract }],
         connections,
     }
 }
